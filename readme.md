@@ -453,33 +453,86 @@ This repository contains the **landing page** case study in its clean state (onl
 
 ### Prerequisites
 
-- Python 3.12+
+- Python 3.11+
 - An LLM with structured output support (e.g., Claude, GPT, Gemini)
 
-### Reproduce the Case Study
+### Install and Run the CLI
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/elzobrito/ESAA---Event-Sourcing-Agent-Architecture.git
-   cd esaa-example-landingpage
-   ```
+#### 1. Clone the repository
 
-2. Inspect the initial state:
-   ```bash
-   cat .roadmap/activity.jsonl    # Initialization events (run.start + task.create × N + verify.ok)
-   cat .roadmap/roadmap.json      # All tasks in todo state; verify_status: ok
-   ```
+```bash
+git clone https://github.com/glaubercosta/ESAA---Event-Sourcing-Agent-Architecture.git
+cd ESAA---Event-Sourcing-Agent-Architecture
+```
 
-3. Run the orchestrator (conceptual — CLI in development):
-   ```bash
-   esaa run --run-id RUN-0001
-   ```
+#### 2. Create and activate a virtual environment
 
-4. Verify the final state:
-   ```bash
-   esaa verify --strict
-   # Expected: verify_status=ok
-   ```
+**Windows PowerShell:**
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+**Linux / macOS (bash):**
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+#### 3. Install the package
+
+```bash
+python -m pip install -U pip
+python -m pip install -e .
+```
+
+#### 4. Verify the installation
+
+```bash
+esaa --help
+```
+
+#### 5. Inspect the initial state
+
+The repository ships with pre-populated roadmap files in `.roadmap/` at the repo root:
+
+```bash
+# Linux/macOS
+cat .roadmap/activity.jsonl    # Initialization events (run.start + task.create × N + verify.ok)
+cat .roadmap/roadmap.json      # All tasks in todo state; verify_status: ok
+
+# Windows PowerShell
+Get-Content .roadmap\activity.jsonl
+Get-Content .roadmap\roadmap.json
+```
+
+#### 6. Verify projection consistency
+
+```bash
+esaa verify
+# Expected output includes: "verify_status": "ok"
+```
+
+#### 7. Run the orchestrator
+
+```bash
+esaa run --steps 1
+# Increase --steps to dispatch more tasks in one call
+```
+
+> **Note:** The `run` subcommand does not accept `--run-id`. Use `esaa init --run-id <ID>` to initialise a new run with a custom ID.
+
+### Alternative: run without installing the console script
+
+If you prefer not to install the `esaa` entry point, you can invoke the package directly:
+
+```bash
+python -m esaa --help
+python -m esaa verify
+python -m esaa run --steps 1
+```
+
+> Make sure you are at the repo root (where `pyproject.toml` and `.roadmap/` reside) before running any `esaa` command.
 
 ---
 
