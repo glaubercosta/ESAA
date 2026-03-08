@@ -60,6 +60,7 @@ Unlike snapshot-based frameworks (AutoGen, MetaGPT, LangGraph, CrewAI), ESAA pro
 ├── lessons.json                                # Read-model: learned constraints
 ├── snapshots/                                  # Integrity snapshots (verify corruption recovery)
 │
+├── .gitignore                                  # Git exclusion rules
 ├── AGENT_CONTRACT.yaml                         # What agents CAN and CANNOT do
 ├── ORCHESTRATOR_CONTRACT.yaml                  # What the orchestrator MUST do
 ├── RUNTIME_POLICY.yaml                         # TTLs, retries, escalation, rollback
@@ -466,6 +467,8 @@ cd ESAA---Event-Sourcing-Agent-Architecture
 ```
 
 #### 2. Create and activate a virtual environment
+
+> **Note:** The `.venv` directory is ignored by Git (via `.gitignore`) to keep the repository clean.
 
 **Windows PowerShell:**
 ```powershell
