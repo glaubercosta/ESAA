@@ -26,6 +26,7 @@ def test_submit_claim_accepted(contract_bundle: Path) -> None:
         "activity_event": {
             "action": "claim",
             "task_id": "T-1000",
+            "prior_status": "todo",
             "notes": "claiming spec task",
         }
     }
@@ -43,7 +44,7 @@ def test_submit_complete_with_files(contract_bundle: Path) -> None:
 
     # First claim
     service.submit(
-        {"activity_event": {"action": "claim", "task_id": "T-1000"}},
+        {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
         actor="agent-spec",
     )
 
@@ -53,7 +54,13 @@ def test_submit_complete_with_files(contract_bundle: Path) -> None:
             "activity_event": {
                 "action": "complete",
                 "task_id": "T-1000",
+                "prior_status": "in_progress",
                 "verification": {"checks": ["manual-review"]},
+                "discovery_evidence": {
+                    "unknowns": ["none"],
+                    "assumptions": ["input requirements are stable"],
+                    "critical_questions": ["are acceptance criteria complete?"],
+                },
             },
             "file_updates": [
                 {"path": "docs/spec/T-1000.md", "content": "# Spec\nContent here.\n"}
@@ -72,7 +79,7 @@ def test_submit_boundary_violation_rejected(contract_bundle: Path) -> None:
     service.init(force=True)
 
     service.submit(
-        {"activity_event": {"action": "claim", "task_id": "T-1000"}},
+        {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
         actor="agent-spec",
     )
 
@@ -82,7 +89,13 @@ def test_submit_boundary_violation_rejected(contract_bundle: Path) -> None:
                 "activity_event": {
                     "action": "complete",
                     "task_id": "T-1000",
+                    "prior_status": "in_progress",
                     "verification": {"checks": ["ok"]},
+                    "discovery_evidence": {
+                        "unknowns": ["none"],
+                        "assumptions": ["boundary rules unchanged"],
+                        "critical_questions": ["is path inside allowed scope?"],
+                    },
                 },
                 "file_updates": [{"path": "src/evil.py", "content": "hack"}],
             },
@@ -98,7 +111,7 @@ def test_submit_invalid_task_rejected(contract_bundle: Path) -> None:
 
     with pytest.raises(ESAAError) as exc:
         service.submit(
-            {"activity_event": {"action": "claim", "task_id": "T-9999"}},
+            {"activity_event": {"action": "claim", "task_id": "T-9999", "prior_status": "todo"}},
             actor="agent-spec",
         )
     assert exc.value.code == "TASK_NOT_FOUND"
@@ -111,7 +124,7 @@ def test_submit_dry_run_no_persist(contract_bundle: Path) -> None:
 
     events_before = parse_event_store(contract_bundle)
     result = service.submit(
-        {"activity_event": {"action": "claim", "task_id": "T-1000"}},
+        {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
         actor="agent-spec",
         dry_run=True,
     )
@@ -127,7 +140,7 @@ def test_submit_full_lifecycle(contract_bundle: Path) -> None:
 
     # Claim
     service.submit(
-        {"activity_event": {"action": "claim", "task_id": "T-1000"}},
+        {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
         actor="agent-spec",
     )
     # Complete
@@ -136,7 +149,13 @@ def test_submit_full_lifecycle(contract_bundle: Path) -> None:
             "activity_event": {
                 "action": "complete",
                 "task_id": "T-1000",
+                "prior_status": "in_progress",
                 "verification": {"checks": ["reviewed"]},
+                "discovery_evidence": {
+                    "unknowns": ["none"],
+                    "assumptions": ["spec is approved"],
+                    "critical_questions": ["does artifact satisfy acceptance criteria?"],
+                },
             },
             "file_updates": [
                 {"path": "docs/spec/T-1000.md", "content": "# Spec\n"}
@@ -150,6 +169,7 @@ def test_submit_full_lifecycle(contract_bundle: Path) -> None:
             "activity_event": {
                 "action": "review",
                 "task_id": "T-1000",
+                "prior_status": "review",
                 "decision": "approve",
                 "tasks": ["T-1000"],
             }
@@ -177,7 +197,7 @@ def test_process_inbox_accepted(contract_bundle: Path) -> None:
     inbox.mkdir(parents=True, exist_ok=True)
 
     # Write a claim to inbox with actor__task_id naming
-    payload = {"activity_event": {"action": "claim", "task_id": "T-1000"}}
+    payload = {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}}
     (inbox / "agent-spec__T-1000.json").write_text(
         json.dumps(payload), encoding="utf-8"
     )
@@ -201,7 +221,7 @@ def test_process_inbox_rejected_moved(contract_bundle: Path) -> None:
     inbox.mkdir(parents=True, exist_ok=True)
 
     # Invalid: unknown task
-    payload = {"activity_event": {"action": "claim", "task_id": "T-9999"}}
+    payload = {"activity_event": {"action": "claim", "task_id": "T-9999", "prior_status": "todo"}}
     (inbox / "agent-spec__T-9999.json").write_text(
         json.dumps(payload), encoding="utf-8"
     )
@@ -221,7 +241,7 @@ def test_process_inbox_without_actor_prefix(contract_bundle: Path) -> None:
     inbox = contract_bundle / ".roadmap" / "inbox"
     inbox.mkdir(parents=True, exist_ok=True)
 
-    payload = {"activity_event": {"action": "claim", "task_id": "T-1000"}}
+    payload = {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}}
     (inbox / "T-1000.json").write_text(json.dumps(payload), encoding="utf-8")
 
     result = service.process()
@@ -250,7 +270,7 @@ def test_process_dry_run(contract_bundle: Path) -> None:
     inbox = contract_bundle / ".roadmap" / "inbox"
     inbox.mkdir(parents=True, exist_ok=True)
 
-    payload = {"activity_event": {"action": "claim", "task_id": "T-1000"}}
+    payload = {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}}
     (inbox / "agent-spec__T-1000.json").write_text(
         json.dumps(payload), encoding="utf-8"
     )
@@ -262,3 +282,56 @@ def test_process_dry_run(contract_bundle: Path) -> None:
     assert len(events_after) == len(events_before)
     # File not moved
     assert (inbox / "agent-spec__T-1000.json").exists()
+
+
+def test_submit_prior_status_mismatch_rejected(contract_bundle: Path) -> None:
+    """Reject when prior_status diverges from current task status (WG-003)."""
+    service = ESAAService(contract_bundle)
+    service.init(force=True)
+
+    with pytest.raises(ESAAError) as exc:
+        service.submit(
+            {
+                "activity_event": {
+                    "action": "issue.report",
+                    "task_id": "T-1000",
+                    "prior_status": "review",
+                    "issue_id": "ISS-PRIOR-001",
+                    "severity": "low",
+                    "title": "prior status mismatch",
+                    "evidence": {
+                        "symptom": "mismatch",
+                        "repro_steps": ["submit issue.report with wrong prior_status"],
+                    },
+                }
+            },
+            actor="agent-spec",
+        )
+    assert exc.value.code == "PRIOR_STATUS_MISMATCH"
+
+
+def test_submit_spec_complete_requires_discovery(contract_bundle: Path) -> None:
+    """SEProcess assimilation: spec complete requires discovery evidence."""
+    service = ESAAService(contract_bundle)
+    service.init(force=True)
+    service.submit(
+        {"activity_event": {"action": "claim", "task_id": "T-1000", "prior_status": "todo"}},
+        actor="agent-spec",
+    )
+
+    with pytest.raises(ESAAError) as exc:
+        service.submit(
+            {
+                "activity_event": {
+                    "action": "complete",
+                    "task_id": "T-1000",
+                    "prior_status": "in_progress",
+                    "verification": {"checks": ["reviewed"]},
+                },
+                "file_updates": [
+                    {"path": "docs/spec/T-1000.md", "content": "# Spec\n"}
+                ],
+            },
+            actor="agent-spec",
+        )
+    assert exc.value.code == "MISSING_DISCOVERY"

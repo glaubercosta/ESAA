@@ -180,8 +180,9 @@ Defines what agents **can** and **cannot** do:
 Hotfix tasks additionally require `scope_patch` — a path allowlist with `prefix_match` semantics that further restricts writable paths beyond the base `task_kind` boundary.
 
 **Output contract** — every agent result must be a JSON envelope with:
-- Required root key: `activity_event` (`action` + `task_id` mandatory)
+- Required root key: `activity_event` (`action` + `task_id` + `prior_status` mandatory)
 - Optional root key: `file_updates` (array of `{path, content}`)
+- `file_updates` is valid only when `activity_event.action = complete`
 - Forbidden fields inside `activity_event`: `schema_version`, `event_id`, `event_seq`, `ts`, `actor`, `payload`, `assigned_to`, `started_at`, `completed_at`
 
 ### Orchestrator Contract (`ORCHESTRATOR_CONTRACT.yaml`)
@@ -211,6 +212,7 @@ Reject conditions (any violation triggers `output.rejected` before persistence):
 
 - **`immutable_done`:** `done` is terminal — fixes must use the hotfix workflow, which creates a new task without touching the original
 - **`verification_gate`:** `complete` on `impl` tasks requires `verification.checks` with ≥ 1 item; hotfix tasks require ≥ 2 items plus `issue_id` and `fixes`
+- **`discovery_gate` (SEProcess assimilated):** `complete` on `spec` tasks requires `discovery_evidence` with non-empty `unknowns`, `assumptions`, and `critical_questions`
 
 ---
 
@@ -446,7 +448,13 @@ The architecture has been validated in three case studies:
 | `verify_status` | ok | ok | ok |
 | Concurrent claims | No | No | Yes (6 in 1 min) |
 
-This repository contains the **landing page** case study in its clean state (only initialization events in the event store), allowing full pipeline reproduction from scratch. It also contains **ESAA-calc** as a fully executed reference run (48 events, `verify.ok`, finalized projection hash), useful as a "known-good" audit target and replay baseline.
+This repository may include additional events beyond the initialization baseline (for example, workflow-gate and semantic-memory evolution runs). The source of truth remains `.roadmap/activity.jsonl`, and reproducibility should be validated with `esaa verify`.
+
+If you need a clean baseline state, run:
+
+```bash
+esaa init --force
+```
 
 ---
 
@@ -495,19 +503,21 @@ python -m pip install -e .
 esaa --help
 ```
 
-#### 5. Inspect the initial state
+#### 5. Inspect the current state
 
 The repository ships with pre-populated roadmap files in `.roadmap/` at the repo root:
 
 ```bash
 # Linux/macOS
-cat .roadmap/activity.jsonl    # Initialization events (run.start + task.create × N + verify.ok)
-cat .roadmap/roadmap.json      # All tasks in todo state; verify_status: ok
+cat .roadmap/activity.jsonl    # Full event log (append-only, may include historical runs)
+cat .roadmap/roadmap.json      # Current projected read-model
 
 # Windows PowerShell
 Get-Content .roadmap\activity.jsonl
 Get-Content .roadmap\roadmap.json
 ```
+
+> Transient submit payloads such as `claim_*.json`, `complete_*.json`, `review_*.json`, `issue_*.json`, `create_*.json`, `smoke_test_*.json`, and `hash*.txt` are local debug artifacts and are ignored by Git.
 
 #### 6. Verify projection consistency
 
@@ -525,6 +535,26 @@ esaa run --steps 1
 
 > **Note:** The `run` subcommand does not accept `--run-id`. Use `esaa init --run-id <ID>` to initialise a new run with a custom ID.
 
+### Bootstrap a New Project (PowerShell)
+
+To use ESAA in a separate project (recommended), run the bootstrap script from the framework repository:
+
+```powershell
+pwsh -File .\scripts\bootstrap-esaa.ps1 -ProjectRoot C:\Users\Glauber\codes\MicroTaskManagerV6 -ForceInit
+```
+
+What the script does:
+- Runs `esaa --root <project> init` (with `--force` when requested)
+- Copies canonical governance artifacts from `ESAA/.roadmap/` to `<project>/.roadmap/`
+- Refuses to bootstrap into the framework root to prevent repository contamination
+
+After bootstrap:
+
+```powershell
+esaa --root C:\Users\Glauber\codes\MicroTaskManagerV6 run --steps 1
+esaa --root C:\Users\Glauber\codes\MicroTaskManagerV6 verify
+```
+
 ### Alternative: run without installing the console script
 
 If you prefer not to install the `esaa` entry point, you can invoke the package directly:
@@ -541,7 +571,7 @@ python -m esaa run --steps 1
 
 ## Roadmap
 
-- [ ] **`esaa` CLI** — `esaa init / run / verify` with remote repository integration
+- [ ] **`esaa` CLI** — expand remote repository integration and UX for the current command set (`init`, `run`, `submit`, `process`, `project`, `verify`, `replay`, `memory`, `mutate`)
 - [ ] **Conflict detection** — strategies for concurrent file modifications by multiple agents
 - [ ] **Time-travel debugging** — visual diff comparison at arbitrary event points in the log
 - [ ] **SWE-bench evaluation** — systematic evaluation on real issue benchmarks
