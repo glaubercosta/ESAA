@@ -23,6 +23,8 @@ from .store import (
 )
 from .utils import ensure_parent, normalize_rel_path, utc_now_iso
 from .validator import validate_agent_output
+from .memory import SemanticMemory
+from .lesson_engine import LessonEngine
 
 
 class ESAAService:
@@ -102,13 +104,53 @@ class ESAAService:
         save_roadmap(self.root, roadmap)
         save_issues(self.root, issues)
         save_lessons(self.root, lessons)
+        
+        # Optional Semantic Memory Sync
+        memory = SemanticMemory(self.root)
+        mem_synced = memory.sync(events)
+        
+        # Automated Lesson Proposals
+        engine = LessonEngine(self.root)
+        suggested = engine.analyze_failures(events, lessons.get("lessons", []))
+        
         return {
             "last_event_seq": roadmap["meta"]["run"]["last_event_seq"],
             "projection_hash_sha256": roadmap["meta"]["run"]["projection_hash_sha256"],
             "tasks": len(roadmap["tasks"]),
             "issues": len(issues["issues"]),
             "lessons": len(lessons["lessons"]),
+            "suggested_lessons": len(suggested),
+            "memory_synced": mem_synced,
+            "_suggested": suggested
         }
+
+    def memory_search(self, query: str, top_k: int = 5) -> list[dict[str, Any]]:
+        memory = SemanticMemory(self.root)
+        return memory.search(query, top_k=top_k)
+
+    def mutate(self, target: str, change: str, summary: str, files: list[str] | None = None, resolves: str | None = None) -> dict[str, Any]:
+        events = parse_event_store(self.root)
+        seq = next_event_seq(events)
+        
+        payload = {
+            "target": target,
+            "change": change,
+            "summary": summary
+        }
+        if files:
+            payload["files_changed"] = files
+        if resolves:
+            payload["resolves"] = resolves
+            
+        mutate_event = make_event(
+            seq,
+            actor="orchestrator",
+            action="orchestrator.view.mutate",
+            payload=payload
+        )
+        
+        append_events(self.root, [mutate_event])
+        return self.project()
 
     def verify(self) -> dict[str, Any]:
         try:
@@ -375,7 +417,7 @@ class ESAAService:
             if not task:
                 break
             executed += 1
-            context = build_dispatch_context(roadmap, task, contract)
+            context = build_dispatch_context(roadmap, task, contract, root=self.root)
             current_seq = next_event_seq(events + new_events)
 
             output: dict[str, Any] | None = None
@@ -562,9 +604,9 @@ def select_next_task(tasks: list[dict[str, Any]]) -> dict[str, Any] | None:
     return None
 
 
-def build_dispatch_context(roadmap: dict[str, Any], task: dict[str, Any], contract: dict[str, Any]) -> dict[str, Any]:
+def build_dispatch_context(roadmap: dict[str, Any], task: dict[str, Any], contract: dict[str, Any], root: Path | None = None) -> dict[str, Any]:
     boundaries = contract["boundaries"]["by_task_kind"][task["task_kind"]]
-    return {
+    context = {
         "task": task,
         "boundaries": {
             "read": boundaries.get("read", []),
@@ -579,6 +621,17 @@ def build_dispatch_context(roadmap: dict[str, Any], task: dict[str, Any], contra
             "task_id": task["task_id"],
         },
     }
+    
+    # Optional Semantic Injection
+    if root:
+        memory = SemanticMemory(root)
+        # Search for context relevant to the task title and description
+        search_query = f"{task['title']} {task.get('description', '')}"
+        relevant = memory.search(search_query, top_k=3)
+        if relevant:
+            context["semantic_memory"] = relevant
+            
+    return context
 
 
 def build_hotfix_event(current_events: list[dict[str, Any]], issue_payload: dict[str, Any]) -> dict[str, Any] | None:

@@ -20,6 +20,7 @@ src/esaa_core.egg-info/dependency_links.txt
 src/esaa_core.egg-info/entry_points.txt
 src/esaa_core.egg-info/requires.txt
 src/esaa_core.egg-info/top_level.txt
+tests/test_adapters_llm.py
 tests/test_projection_workflow.py
 tests/test_service_run_and_boundaries.py
 tests/test_store_and_compat.py

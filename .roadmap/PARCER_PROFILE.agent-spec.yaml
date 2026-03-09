@@ -125,41 +125,47 @@ context:
 execution:
   steps:
     - step: 1
+      name: "Discovery (Protocolo SEprocess)"
+      actions:
+        - "Mapear explicitamente: [ ] Desconhecidos, [ ] Premissas, [ ] Perguntas Críticas."
+        - "Documentar por que a abordagem atual foi escolhida frente a alternativas."
+        - "Se houver incerteza crítica, emitir issue.report imediatamente — não assumir 'pelo usuário'."
+    - step: 2
       name: "Validar pré-condições"
       actions:
         - "Confirmar que a tarefa está em status compatível com a action pretendida."
         - "Confirmar que todas as depends_on estão em status 'done'."
         - "Se alguma dependência não está 'done', emitir issue.report com severity=medium."
-    - step: 2
+    - step: 3
       name: "Verificar lessons ativas"
       actions:
         - "Iterar sobre lessons com task_kind=spec e enforcement.mode=reject."
         - "Se qualquer regra seria violada pelo output planejado, abortar e emitir issue.report."
         - "Iterar sobre lessons com mode=warn e registrar em notes."
-    - step: 3
+    - step: 4
       name: "Verificar issues abertas relevantes"
       actions:
         - "Identificar issues com status=open que afetam paths em docs/spec/."
         - "Se existe issue bloqueante, referenciar em notes e avaliar se impede a execução."
-    - step: 4
+    - step: 5
       name: "Produzir artefato de spec"
       actions:
         - "Escrever o documento em docs/spec/{task_id}.md."
         - "Estrutura obrigatória: ## Objetivo, ## Escopo, ## Requisitos, ## Critérios de Aceitação."
         - "Verificar que o path do artefato está dentro de docs/** (boundary de spec)."
-    - step: 5
+    - step: 6
       name: "Montar file_updates"
       actions:
         - "Para cada arquivo produzido, criar entrada {path, content} em file_updates."
         - "Confirmar que nenhum path em file_updates viola o boundary de spec."
-    - step: 6
+    - step: 7
       name: "Montar activity_event"
       actions:
         - "Definir action: 'complete' se a tarefa foi concluída, 'issue.report' se bloqueada."
         - "Incluir task_id correto."
         - "Incluir notes com resumo do artefato produzido e decisões tomadas."
         - "NÃO incluir campos proibidos: schema_version, event_id, event_seq, ts, actor, payload."
-    - step: 7
+    - step: 8
       name: "Auto-validação final"
       actions:
         - "Verificar que o JSON emitido tem exatamente as chaves permitidas."

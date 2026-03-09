@@ -1,0 +1,18 @@
+{
+    "activity_event": {
+        "action": "issue.report",
+        "task_id": "T-1100",
+        "prior_status": "in_progress",
+        "issue_id": "ISS-0002",
+        "severity": "medium",
+        "title": "Boundary Violation: spec task cannot write to .roadmap/",
+        "evidence": {
+            "symptom": "T-1100 (spec) tentou atualizar PARCER_PROFILE.agent-spec.yaml em .roadmap/, mas o boundary fail-closed bloqueou a operação.",
+            "repro_steps": [
+                "Executar esaa submit para T-1100 com file_updates contendo paths em .roadmap/",
+                "Receber erro BOUNDARY_VIOLATION conforme AGENT_CONTRACT.yaml"
+            ]
+        },
+        "notes": "O framework está funcionando como esperado! Para evoluir o próprio framework, devemos usar uma ação de 'view.mutate' do orchestrator ou elevar privilégios de tarefas de evolução."
+    }
+}

@@ -1,0 +1,7 @@
+{
+  "verify_status": "corrupted",
+  "error_code": "UNKNOWN_ACTION",
+  "error_message": "unknown action in event store: task.claim",
+  "last_event_seq": null,
+  "projection_hash_sha256": null
+}

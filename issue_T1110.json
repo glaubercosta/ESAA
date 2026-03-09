@@ -1,0 +1,17 @@
+{
+    "activity_event": {
+        "action": "issue.report",
+        "task_id": "T-1110",
+        "prior_status": "in_progress",
+        "issue_id": "ISS-0003",
+        "severity": "medium",
+        "title": "Boundary Violation: impl task cannot write to .roadmap/",
+        "evidence": {
+            "symptom": "T-1110 (impl) tentou atualizar agent_result.schema.json em .roadmap/, mas o boundary blocked a operação.",
+            "repro_steps": [
+                "Executar esaa submit para T-1110 com file_updates em .roadmap/"
+            ]
+        },
+        "notes": "Evolução do framework requer privilégios de orchestrator."
+    }
+}

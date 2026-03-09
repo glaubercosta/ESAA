@@ -1,0 +1,12 @@
+{
+    "activity_event": {
+        "action": "review",
+        "task_id": "T-9999",
+        "prior_status": "review",
+        "decision": "approve",
+        "tasks": [
+            "T-9999"
+        ],
+        "notes": "Smoke test concluído com sucesso. Validação de schema v0.4.1 ativa e operando conforme o Protocolo Discovery-First."
+    }
+}

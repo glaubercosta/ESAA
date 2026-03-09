@@ -1,0 +1,14 @@
+{
+    "activity_event": {
+        "action": "issue.report",
+        "task_id": "T-1200",
+        "prior_status": "in_progress",
+        "issue_id": "ISS-0004",
+        "severity": "medium",
+        "title": "Boundary Violation: spec task cannot write projection spec to .roadmap/",
+        "evidence": {
+            "symptom": "T-1200 (spec) tentou escrever em .roadmap/PROJECTION_SPEC.md, o que é proibido pelo boundary de spec."
+        },
+        "notes": "Evolução do framework requer privilégios de orchestrator."
+    }
+}

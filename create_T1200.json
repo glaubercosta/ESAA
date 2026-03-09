@@ -1,0 +1,18 @@
+{
+    "activity_event": {
+        "action": "task.create",
+        "task_id": "T-1200",
+        "task_kind": "spec",
+        "title": "Define Semantic Memory Read-Model",
+        "description": "Specify the projection from event store to a Vector DB for agent memory.",
+        "depends_on": [],
+        "targets": [
+            "projections"
+        ],
+        "outputs": {
+            "files": [
+                ".roadmap/PROJECTION_SPEC.md"
+            ]
+        }
+    }
+}

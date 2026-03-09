@@ -1,0 +1,8 @@
+{
+    "activity_event": {
+        "action": "claim",
+        "task_id": "T-1110",
+        "prior_status": "todo",
+        "notes": "Iniciando a atualização do schema para suportar as evidências de descoberta (Discovery-First)."
+    }
+}

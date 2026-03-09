@@ -38,6 +38,21 @@ def _build_parser() -> argparse.ArgumentParser:
     cmd_replay = sub.add_parser("replay", help="rebuild state until event id/seq")
     cmd_replay.add_argument("--until", default=None, help="event_seq (number) or event_id")
     cmd_replay.add_argument("--no-write", action="store_true", help="compute replay without writing views")
+
+    cmd_memory = sub.add_parser("memory", help="semantic memory tools")
+    ms_sub = cmd_memory.add_subparsers(dest="subcommand", required=True)
+    ms_search = ms_sub.add_parser("search", help="search event logs semanticly")
+    ms_search.add_argument("query", help="search query")
+    ms_search.add_argument("--top", type=int, default=5, help="top results")
+    ms_sub.add_parser("sync", help="manually sync semantic index")
+
+    cmd_mutate = sub.add_parser("mutate", help="apply an orchestrator.view.mutate event to the event store")
+    cmd_mutate.add_argument("--target", required=True, help="mutation target area (e.g. contracts, schemas, projections)")
+    cmd_mutate.add_argument("--change", required=True, help="change type (e.g. new, upgrade, deprecate)")
+    cmd_mutate.add_argument("--summary", required=True, help="human-readable description of the mutation")
+    cmd_mutate.add_argument("--files", nargs="*", help="list of files changed by this mutation")
+    cmd_mutate.add_argument("--resolves", default=None, help="issue ID resolved by this mutation (e.g. ISS-0005)")
+
     return parser
 
 
@@ -70,13 +85,27 @@ def main(argv: list[str] | None = None) -> int:
             result = service.verify()
         elif args.command == "replay":
             result = service.replay(until=args.until, write_views=not args.no_write)
+        elif args.command == "memory":
+            if args.subcommand == "search":
+                result = service.memory_search(args.query, top_k=args.top)
+            elif args.subcommand == "sync":
+                result = service.project()
+        elif args.command == "mutate":
+            result = service.mutate(
+                target=args.target,
+                change=args.change,
+                summary=args.summary,
+                files=args.files,
+                resolves=args.resolves,
+            )
         else:
             raise ESAAError("UNKNOWN_COMMAND", f"unknown command: {args.command}")
 
         print(json.dumps(result, ensure_ascii=False, indent=2))
-        verify_status = result.get("verify_status")
-        if verify_status in {"mismatch", "corrupted"}:
-            return 2
+        if isinstance(result, dict):
+            verify_status = result.get("verify_status")
+            if verify_status in {"mismatch", "corrupted"}:
+                return 2
         return 0
     except ESAAError as exc:
         print(

@@ -1,0 +1,12 @@
+{
+    "activity_event": {
+        "action": "review",
+        "task_id": "T-1110",
+        "prior_status": "review",
+        "decision": "approve",
+        "tasks": [
+            "T-1110"
+        ],
+        "notes": "Aprovado. Schema reflete as novas evidências de descoberta mandatórias."
+    }
+}
