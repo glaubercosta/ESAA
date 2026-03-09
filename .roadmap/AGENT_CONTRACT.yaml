@@ -205,6 +205,16 @@ integrity_rules:
     reject_code_on_violation: "MISSING_VERIFICATION"
     gate_ref: "WG-002"
 
+  discovery_gate:
+    description: "SEProcess assimilado: tarefas spec devem carregar evidência mínima de descoberta no complete"
+    enabled: true
+    by_task_kind:
+      spec:
+        require_on_actions: ["complete"]
+        min_items_per_bucket: 1
+    reject_code_on_violation: "MISSING_DISCOVERY"
+    gate_ref: "WG-006"
+
   sequence_gate:
     description: "A sequência claim → complete deve ser respeitada por invocação"
     reject_codes:
@@ -243,6 +253,11 @@ workflow_gate_references:
   MISSING_VERIFICATION:
     gate: "WG-002"
     descricao: "complete sem verification.checks em tarefa impl/qa/hotfix"
+    lessons: []
+
+  MISSING_DISCOVERY:
+    gate: "WG-006"
+    descricao: "complete em tarefa spec sem discovery_evidence mínimo"
     lessons: []
 
   PRIOR_STATUS_MISMATCH:

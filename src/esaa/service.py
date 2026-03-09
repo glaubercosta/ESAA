@@ -608,6 +608,7 @@ def build_dispatch_context(roadmap: dict[str, Any], task: dict[str, Any], contra
     boundaries = contract["boundaries"]["by_task_kind"][task["task_kind"]]
     context = {
         "task": task,
+        "task_status": task.get("status"),
         "boundaries": {
             "read": boundaries.get("read", []),
             "write": boundaries.get("write", []),
@@ -622,6 +623,33 @@ def build_dispatch_context(roadmap: dict[str, Any], task: dict[str, Any], contra
         },
     }
     
+    lessons_injection = contract.get("active_lessons_injection", {})
+    if root and lessons_injection.get("enabled"):
+        lessons_path = root / ".roadmap" / "lessons.json"
+        if lessons_path.exists():
+            try:
+                lessons_payload = json.loads(lessons_path.read_text(encoding="utf-8"))
+                lessons = lessons_payload.get("lessons", [])
+                active_lessons = []
+                for lesson in lessons:
+                    if lesson.get("status") != "active":
+                        continue
+                    task_kinds = lesson.get("scope", {}).get("task_kinds", [])
+                    if task["task_kind"] not in task_kinds:
+                        continue
+                    active_lessons.append(
+                        {
+                            "lesson_id": lesson.get("lesson_id"),
+                            "rule": lesson.get("rule"),
+                            "enforcement": lesson.get("enforcement", {}),
+                        }
+                    )
+                if active_lessons:
+                    context["active_lessons"] = active_lessons
+            except (OSError, json.JSONDecodeError):
+                # Keep dispatch deterministic and fail-soft for context enrichment.
+                pass
+
     # Optional Semantic Injection
     if root:
         memory = SemanticMemory(root)

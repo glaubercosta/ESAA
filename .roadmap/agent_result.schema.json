@@ -157,21 +157,24 @@
               "items": {
                 "type": "string",
                 "minLength": 1
-              }
+              },
+              "minItems": 1
             },
             "assumptions": {
               "type": "array",
               "items": {
                 "type": "string",
                 "minLength": 1
-              }
+              },
+              "minItems": 1
             },
             "critical_questions": {
               "type": "array",
               "items": {
                 "type": "string",
                 "minLength": 1
-              }
+              },
+              "minItems": 1
             }
           }
         },

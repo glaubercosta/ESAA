@@ -85,7 +85,7 @@ def _task_by_id(state: dict[str, Any], task_id: str) -> dict[str, Any]:
 def _ensure_owner(task: dict[str, Any], actor: str) -> None:
     owner = task.get("assigned_to")
     if owner != actor:
-        raise ESAAError("NOT_LOCK_OWNER", f"actor {actor} is not lock owner ({owner})")
+        raise ESAAError("LOCK_VIOLATION", f"actor {actor} is not lock owner ({owner})")
 
 
 def _apply_claim(state: dict[str, Any], event: dict[str, Any]) -> None:
