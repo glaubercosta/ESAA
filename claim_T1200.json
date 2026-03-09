@@ -1,8 +1,0 @@
-{
-    "activity_event": {
-        "action": "claim",
-        "task_id": "T-1200",
-        "prior_status": "todo",
-        "notes": "Iniciando a especificação do Read-Model de Memória Semântica conforme plano v0.5."
-    }
-}

@@ -160,3 +160,16 @@ cython_debug/
 
 # ESAA local
 src/esaa/adapters/__pycache__/
+
+# ESAA ephemeral submit payloads (envelopes descartáveis após esaa submit)
+# O conteúdo já está capturado em .roadmap/activity.jsonl
+claim_*.json
+complete_*.json
+review_*.json
+approve_*.json
+issue_*.json
+create_*.json
+smoke_test_*.json
+
+# ESAA debug/temp
+hash*.txt

@@ -1,5 +1,0 @@
-{
-  "verify_status": "ok",
-  "last_event_seq": 37,
-  "projection_hash_sha256": "a07415f0c97e483a2a98b2eb5053f0da89ca3b2b9bc14a01a18511fcfe95833c"
-}

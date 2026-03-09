@@ -1,8 +1,0 @@
-{
-    "activity_event": {
-        "action": "claim",
-        "task_id": "T-1100",
-        "prior_status": "todo",
-        "notes": "Iniciando a definição do Protocolo Discovery-First conforme plano de evolução v0.5."
-    }
-}

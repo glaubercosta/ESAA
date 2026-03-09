@@ -1,8 +1,0 @@
-{
-    "activity_event": {
-        "action": "claim",
-        "task_id": "T-9999",
-        "prior_status": "todo",
-        "notes": "Iniciando smoke test para validar discovery_evidence."
-    }
-}
