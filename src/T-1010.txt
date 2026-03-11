@@ -1,0 +1,13 @@
+T-1010 GitHub integration implementation summary
+
+Implemented capabilities:
+- CLI: `esaa github check`
+- CLI: `esaa github publish` with options: --repo, --remote, --branch, --visibility, --no-gh, --dry-run
+- Service: github_check() and github_publish()
+- Dry-run execution plan for safe preview
+- Fallback flow without gh (git remote add + git push)
+- Actionable error mapping for GITHUB_* codes
+
+Updated files:
+- src/esaa/cli.py
+- src/esaa/service.py

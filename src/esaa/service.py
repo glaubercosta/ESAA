@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -125,9 +127,359 @@ class ESAAService:
             "_suggested": suggested
         }
 
+    def doctor(self) -> dict[str, Any]:
+        checks: list[dict[str, Any]] = []
+
+        def add_check(name: str, status: str, detail: str, required: bool, next_step: str | None = None) -> None:
+            entry: dict[str, Any] = {
+                "name": name,
+                "status": status,
+                "required": required,
+                "detail": detail,
+            }
+            if next_step:
+                entry["next_step"] = next_step
+            checks.append(entry)
+
+        for command in ("python", "git"):
+            found = shutil.which(command)
+            add_check(
+                name=f"bin:{command}",
+                status="ok" if found else "fail",
+                detail=found or "not found in PATH",
+                required=True,
+                next_step=f"Install {command} and ensure it is available in PATH.",
+            )
+
+        for command in ("node", "npm", "gh"):
+            found = shutil.which(command)
+            add_check(
+                name=f"bin:{command}",
+                status="ok" if found else "warn",
+                detail=found or "not found in PATH",
+                required=False,
+                next_step=f"Install {command} for improved workflow support.",
+            )
+
+        roadmap_dir = self.root / ".roadmap"
+        add_check(
+            name="path:.roadmap",
+            status="ok" if roadmap_dir.exists() else "fail",
+            detail=str(roadmap_dir),
+            required=True,
+            next_step="Run `esaa init` or bootstrap at the project root.",
+        )
+
+        for filename in (
+            "AGENT_CONTRACT.yaml",
+            "ORCHESTRATOR_CONTRACT.yaml",
+            "RUNTIME_POLICY.yaml",
+            "STORAGE_POLICY.yaml",
+            "agent_result.schema.json",
+            "roadmap.schema.json",
+            "issues.schema.json",
+            "lessons.schema.json",
+        ):
+            path = roadmap_dir / filename
+            add_check(
+                name=f"artifact:{filename}",
+                status="ok" if path.exists() else "fail",
+                detail=str(path),
+                required=True,
+                next_step=f"Restore missing .roadmap/{filename} from canonical framework files.",
+            )
+
+        has_fail = any(item["required"] and item["status"] == "fail" for item in checks)
+        has_warn = any(item["status"] == "warn" for item in checks)
+        status = "fail" if has_fail else ("warn" if has_warn else "ok")
+        next_steps = [item["next_step"] for item in checks if item.get("next_step") and item["status"] in {"fail", "warn"}]
+        return {
+            "status": status,
+            "project_root": str(self.root),
+            "checks": checks,
+            "next_steps": next_steps,
+        }
+
     def memory_search(self, query: str, top_k: int = 5) -> list[dict[str, Any]]:
         memory = SemanticMemory(self.root)
         return memory.search(query, top_k=top_k)
+
+    def runtime_profiles(self) -> dict[str, Any]:
+        catalog = _runtime_profile_catalog()
+        return {
+            "status": "ok",
+            "profiles": sorted(catalog.keys()),
+            "actions": ["start", "build", "test"],
+        }
+
+    def runtime_command(self, stack: str, action: str) -> dict[str, Any]:
+        catalog = _runtime_profile_catalog()
+        profile = catalog.get(stack)
+        if profile is None:
+            raise ESAAError("RUNTIME_STACK_NOT_FOUND", f"runtime stack not found: {stack}")
+        command = profile.get(action)
+        if command is None:
+            raise ESAAError("RUNTIME_ACTION_NOT_FOUND", f"action {action} not available for stack {stack}")
+        return {
+            "status": "ok",
+            "stack": stack,
+            "action": action,
+            "command": command,
+            "notes": profile.get("_notes", ""),
+        }
+
+    def github_check(self) -> dict[str, Any]:
+        checks: list[dict[str, Any]] = []
+
+        git_path = shutil.which("git")
+        gh_path = shutil.which("gh")
+        checks.append({"name": "bin:git", "status": "ok" if git_path else "fail", "detail": git_path or "not found"})
+        checks.append({"name": "bin:gh", "status": "ok" if gh_path else "warn", "detail": gh_path or "not found"})
+
+        in_repo = False
+        branch = None
+        remote_origin = None
+        if git_path:
+            probe = _run_command(["git", "rev-parse", "--is-inside-work-tree"], cwd=self.root)
+            in_repo = probe["ok"] and probe["stdout"].strip() == "true"
+            checks.append(
+                {
+                    "name": "git:inside_repo",
+                    "status": "ok" if in_repo else "fail",
+                    "detail": probe["stdout"].strip() or probe["stderr"].strip(),
+                }
+            )
+            if in_repo:
+                branch_probe = _run_command(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=self.root)
+                if branch_probe["ok"]:
+                    branch = branch_probe["stdout"].strip()
+                checks.append(
+                    {
+                        "name": "git:current_branch",
+                        "status": "ok" if branch else "warn",
+                        "detail": branch or branch_probe["stderr"].strip() or "unknown",
+                    }
+                )
+
+                remote_probe = _run_command(["git", "remote", "get-url", "origin"], cwd=self.root)
+                if remote_probe["ok"]:
+                    remote_origin = remote_probe["stdout"].strip()
+                checks.append(
+                    {
+                        "name": "git:origin_remote",
+                        "status": "ok" if remote_origin else "warn",
+                        "detail": remote_origin or "origin not configured",
+                    }
+                )
+
+        gh_auth = None
+        if gh_path:
+            auth_probe = _run_command(["gh", "auth", "status", "-h", "github.com"], cwd=self.root)
+            gh_auth = auth_probe["ok"]
+            checks.append(
+                {
+                    "name": "gh:auth",
+                    "status": "ok" if gh_auth else "warn",
+                    "detail": "authenticated" if gh_auth else (auth_probe["stderr"].strip() or "not authenticated"),
+                }
+            )
+
+        has_fail = any(item["status"] == "fail" for item in checks)
+        has_warn = any(item["status"] == "warn" for item in checks)
+        status = "fail" if has_fail else ("warn" if has_warn else "ok")
+        return {
+            "status": status,
+            "project_root": str(self.root),
+            "in_repo": in_repo,
+            "branch": branch,
+            "origin": remote_origin,
+            "checks": checks,
+        }
+
+    def github_publish(
+        self,
+        repo: str | None = None,
+        remote: str = "origin",
+        branch: str | None = None,
+        visibility: str = "private",
+        use_gh: bool = True,
+        dry_run: bool = True,
+    ) -> dict[str, Any]:
+        repo_probe = _run_command(["git", "rev-parse", "--is-inside-work-tree"], cwd=self.root)
+        if not repo_probe["ok"] or repo_probe["stdout"].strip() != "true":
+            raise ESAAError("GITHUB_NOT_REPO", "current root is not a git repository")
+
+        branch_name = branch
+        if not branch_name:
+            branch_probe = _run_command(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=self.root)
+            if branch_probe["ok"] and branch_probe["stdout"].strip():
+                branch_name = branch_probe["stdout"].strip()
+            else:
+                unborn_probe = _run_command(["git", "symbolic-ref", "--short", "HEAD"], cwd=self.root)
+                if unborn_probe["ok"] and unborn_probe["stdout"].strip():
+                    branch_name = unborn_probe["stdout"].strip()
+                else:
+                    raise ESAAError("GITHUB_COMMAND_FAILED", "unable to determine current branch")
+
+        remote_probe = _run_command(["git", "remote", "get-url", remote], cwd=self.root)
+        remote_exists = remote_probe["ok"]
+        gh_available = shutil.which("gh") is not None and use_gh
+
+        steps: list[list[str]] = []
+        mode = "gh" if gh_available else "fallback"
+        if not remote_exists:
+            if gh_available and repo:
+                steps.append(["gh", "repo", "create", repo, f"--{visibility}", "--source", ".", "--remote", remote])
+            else:
+                if not repo:
+                    raise ESAAError("GITHUB_REMOTE_REQUIRED", "remote not configured and --repo was not provided")
+                remote_url = repo if repo.startswith("http") or repo.startswith("git@") else f"https://github.com/{repo}.git"
+                steps.append(["git", "remote", "add", remote, remote_url])
+
+        steps.append(["git", "push", "-u", remote, branch_name])
+
+        if dry_run:
+            return {
+                "status": "planned",
+                "mode": mode,
+                "branch": branch_name,
+                "remote": remote,
+                "remote_exists": remote_exists,
+                "steps": [" ".join(step) for step in steps],
+            }
+
+        executed: list[dict[str, Any]] = []
+        for step in steps:
+            result = _run_command(step, cwd=self.root)
+            executed.append({"command": " ".join(step), "ok": result["ok"], "stdout": result["stdout"], "stderr": result["stderr"]})
+            if not result["ok"]:
+                raise ESAAError("GITHUB_COMMAND_FAILED", f"command failed: {' '.join(step)}")
+        return {
+            "status": "ok",
+            "mode": mode,
+            "branch": branch_name,
+            "remote": remote,
+            "steps_executed": executed,
+        }
+
+    def lessons_suggest(self) -> dict[str, Any]:
+        events = parse_event_store(self.root)
+        _, _, lessons_view = materialize(events)
+        engine = LessonEngine(self.root)
+        suggestions = engine.analyze_failures(events, lessons_view.get("lessons", []))
+        return {
+            "status": "ok",
+            "suggested_lessons": len(suggestions),
+            "suggestions": suggestions,
+        }
+
+    def lessons_promote(self, all_suggestions: bool = False, limit: int = 1, dry_run: bool = False) -> dict[str, Any]:
+        events = parse_event_store(self.root)
+        roadmap, issues_view, lessons_view = materialize(events)
+        engine = LessonEngine(self.root)
+        suggestions = engine.analyze_failures(events, lessons_view.get("lessons", []))
+        if not suggestions:
+            return {
+                "status": "noop",
+                "promoted": 0,
+                "reason": "no_suggestions",
+                "last_event_seq": roadmap["meta"]["run"]["last_event_seq"],
+                "verify_status": roadmap["meta"]["run"]["verify_status"],
+            }
+
+        if all_suggestions:
+            to_promote = suggestions
+        else:
+            safe_limit = max(1, int(limit))
+            to_promote = suggestions[:safe_limit]
+
+        existing_issue_ids = {item.get("issue_id") for item in issues_view.get("issues", [])}
+        new_events: list[dict[str, Any]] = []
+        base_events = events
+
+        for suggestion in to_promote:
+            lesson_id = suggestion["lesson_id"]
+            source_ref = (suggestion.get("source_refs") or [{}])[0]
+            task_id = source_ref.get("task_id", "T-UNKNOWN")
+            issue_id = source_ref.get("issue_id") or f"ISS-SUG-{lesson_id[-6:].upper()}"
+            if issue_id in existing_issue_ids:
+                issue_id = f"{issue_id}-{len(existing_issue_ids) + 1}"
+            existing_issue_ids.add(issue_id)
+
+            report_payload = {
+                "action": "issue.report",
+                "task_id": task_id,
+                "issue_id": issue_id,
+                "severity": "low",
+                "title": f"Lesson Promotion {lesson_id}",
+                "affected": {"baseline_id": "B-000", "environment": "lessons-promotion", "paths": []},
+                "evidence": {
+                    "symptom": suggestion.get("mistake", "lesson promotion"),
+                    "repro_steps": [suggestion.get("rule", "review event trail")],
+                },
+                "lesson": {
+                    "lesson_id": lesson_id,
+                    "status": "active",
+                    "mistake": suggestion.get("mistake", ""),
+                    "rule": suggestion.get("rule", ""),
+                    "scope": suggestion.get("scope", {"task_kinds": ["spec", "impl", "qa"]}),
+                    "enforcement": suggestion.get("enforcement", {"mode": "reject", "applies_to": "workflow_gate"}),
+                },
+            }
+            report_event = make_event(
+                next_event_seq(base_events + new_events),
+                actor="orchestrator",
+                action="issue.report",
+                payload=report_payload,
+            )
+            new_events.append(report_event)
+
+            resolve_event = make_event(
+                next_event_seq(base_events + new_events),
+                actor="orchestrator",
+                action="issue.resolve",
+                payload={
+                    "issue_id": issue_id,
+                    "resolution": {
+                        "status": "resolved",
+                        "summary": f"Lesson {lesson_id} promoted to active.",
+                    },
+                },
+            )
+            new_events.append(resolve_event)
+
+        verify_start = make_event(
+            next_event_seq(base_events + new_events),
+            actor="orchestrator",
+            action="verify.start",
+            payload={"strict": True},
+        )
+        new_events.append(verify_start)
+
+        preview_roadmap, _, _ = materialize(base_events + new_events)
+        verify_ok = make_event(
+            next_event_seq(base_events + new_events),
+            actor="orchestrator",
+            action="verify.ok",
+            payload={"projection_hash_sha256": preview_roadmap["meta"]["run"]["projection_hash_sha256"]},
+        )
+        new_events.append(verify_ok)
+
+        final_roadmap, final_issues, final_lessons = materialize(base_events + new_events)
+        if not dry_run:
+            append_events(self.root, new_events)
+            save_roadmap(self.root, final_roadmap)
+            save_issues(self.root, final_issues)
+            save_lessons(self.root, final_lessons)
+
+        return {
+            "status": "accepted",
+            "promoted": len(to_promote),
+            "events_appended": len(new_events),
+            "last_event_seq": final_roadmap["meta"]["run"]["last_event_seq"],
+            "verify_status": final_roadmap["meta"]["run"]["verify_status"],
+            "projection_hash_sha256": final_roadmap["meta"]["run"]["projection_hash_sha256"],
+        }
 
     def mutate(self, target: str, change: str, summary: str, files: list[str] | None = None, resolves: str | None = None) -> dict[str, Any]:
         events = parse_event_store(self.root)
@@ -235,6 +587,98 @@ class ESAAService:
             "last_event_seq": roadmap["meta"]["run"]["last_event_seq"],
             "projection_hash_sha256": roadmap["meta"]["run"]["projection_hash_sha256"],
             "verify_status": "ok",
+        }
+
+    def create_task(
+        self,
+        task_id: str,
+        task_kind: str,
+        title: str,
+        description: str,
+        depends_on: list[str] | None = None,
+        targets: list[str] | None = None,
+        output_files: list[str] | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        clean_task_id = task_id.strip()
+        if not clean_task_id:
+            raise ESAAError("INVALID_ARGUMENT", "task_id must not be empty")
+        if task_kind not in {"spec", "impl", "qa"}:
+            raise ESAAError("INVALID_ARGUMENT", f"invalid task kind: {task_kind}")
+
+        events = parse_event_store(self.root)
+        roadmap, _, _ = materialize(events)
+        existing = {task["task_id"] for task in roadmap["tasks"]}
+        if clean_task_id in existing:
+            raise ESAAError("TASK_ALREADY_EXISTS", f"task already exists: {clean_task_id}")
+
+        depends = [item for item in (depends_on or []) if item]
+        for dep in depends:
+            if dep not in existing:
+                raise ESAAError("DEPENDENCY_NOT_FOUND", f"depends_on task not found: {dep}")
+
+        normalized_outputs = [normalize_rel_path(path) for path in (output_files or []) if path]
+        if not normalized_outputs:
+            defaults = {
+                "spec": f"docs/spec/{clean_task_id}.md",
+                "impl": f"src/{clean_task_id}.txt",
+                "qa": f"docs/qa/{clean_task_id}.md",
+            }
+            normalized_outputs = [defaults[task_kind]]
+
+        task_targets = [item for item in (targets or []) if item] or [f"{task_kind}-incremental"]
+        payload = {
+            "task_id": clean_task_id,
+            "task_kind": task_kind,
+            "title": title,
+            "description": description,
+            "depends_on": depends,
+            "targets": task_targets,
+            "outputs": {"files": normalized_outputs},
+        }
+
+        new_events: list[dict[str, Any]] = []
+        new_events.append(
+            make_event(
+                next_event_seq(events),
+                actor="orchestrator",
+                action="task.create",
+                payload=payload,
+            )
+        )
+        new_events.append(
+            make_event(
+                next_event_seq(events + new_events),
+                actor="orchestrator",
+                action="verify.start",
+                payload={"strict": True},
+            )
+        )
+        preview_roadmap, _, _ = materialize(events + new_events)
+        new_events.append(
+            make_event(
+                next_event_seq(events + new_events),
+                actor="orchestrator",
+                action="verify.ok",
+                payload={"projection_hash_sha256": preview_roadmap["meta"]["run"]["projection_hash_sha256"]},
+            )
+        )
+
+        final_roadmap, final_issues, final_lessons = materialize(events + new_events)
+        if not dry_run:
+            append_events(self.root, new_events)
+            save_roadmap(self.root, final_roadmap)
+            save_issues(self.root, final_issues)
+            save_lessons(self.root, final_lessons)
+
+        return {
+            "status": "accepted",
+            "action": "task.create",
+            "task_id": clean_task_id,
+            "events_appended": len(new_events),
+            "last_event_seq": final_roadmap["meta"]["run"]["last_event_seq"],
+            "verify_status": final_roadmap["meta"]["run"]["verify_status"],
+            "projection_hash_sha256": final_roadmap["meta"]["run"]["projection_hash_sha256"],
         }
 
     def submit(self, agent_output: dict[str, Any], actor: str, dry_run: bool = False) -> dict[str, Any]:
@@ -712,6 +1156,48 @@ def build_hotfix_event(current_events: list[dict[str, Any]], issue_payload: dict
             "baseline_id": issue_payload.get("affected", {}).get("baseline_id", "B-000"),
         },
     )
+
+
+def _runtime_profile_catalog() -> dict[str, dict[str, str]]:
+    return {
+        "react-vite": {
+            "start": "npm --prefix src/frontend run dev -- --host 127.0.0.1 --port 5173",
+            "build": "npm --prefix src/frontend run build",
+            "test": "npm --prefix src/frontend run test",
+            "_notes": "React + Vite frontend profile.",
+        },
+        "fastapi": {
+            "start": "python -m uvicorn src.backend.main:app --host 127.0.0.1 --port 8000",
+            "build": "python -m compileall src/backend",
+            "test": "pytest tests/test_tasks_api.py",
+            "_notes": "FastAPI backend profile.",
+        },
+        "fullstack-fastapi-react": {
+            "start": "python -m uvicorn src.backend.main:app --host 127.0.0.1 --port 8000",
+            "build": "npm --prefix src/frontend run build",
+            "test": "pytest tests/test_tasks_api.py",
+            "_notes": "Use with frontend command from react-vite profile for dual terminal setup.",
+        },
+    }
+
+
+def _run_command(command: list[str], cwd: Path) -> dict[str, Any]:
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        return {"ok": False, "returncode": 1, "stdout": "", "stderr": str(exc)}
+    return {
+        "ok": completed.returncode == 0,
+        "returncode": completed.returncode,
+        "stdout": completed.stdout,
+        "stderr": completed.stderr,
+    }
 
 
 def dumps_pretty(payload: dict[str, Any]) -> str:

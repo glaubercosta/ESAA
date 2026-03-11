@@ -4,66 +4,11 @@
     "esaa_version": "0.4.x",
     "generated_by": "esaa.project",
     "source_event_store": ".roadmap/activity.jsonl",
-    "last_event_seq": 63,
-    "updated_at": "2026-03-10T11:16:55Z"
+    "last_event_seq": 37,
+    "updated_at": "2026-03-11T21:49:13Z"
   },
-  "issues": [
-    {
-      "issue_id": "ISS-0002",
-      "status": "open",
-      "severity": "medium",
-      "title": "Boundary Violation: spec task cannot write to .roadmap/",
-      "baseline_id": null,
-      "affected": {},
-      "evidence": {
-        "symptom": "T-1100 (spec) tentou atualizar PARCER_PROFILE.agent-spec.yaml em .roadmap/, mas o boundary fail-closed bloqueou a operação.",
-        "repro_steps": [
-          "Executar esaa submit para T-1100 com file_updates contendo paths em .roadmap/",
-          "Receber erro BOUNDARY_VIOLATION conforme AGENT_CONTRACT.yaml"
-        ]
-      },
-      "resolution": null,
-      "links": {
-        "reported_by_task_id": "T-1100",
-        "fixes_task_id": null,
-        "hotfix_task_id": null
-      },
-      "timeline": {
-        "created_event_seq": 18,
-        "resolved_event_seq": null
-      }
-    },
-    {
-      "issue_id": "ISS-0003",
-      "status": "open",
-      "severity": "medium",
-      "title": "Boundary Violation: impl task cannot write to .roadmap/",
-      "baseline_id": null,
-      "affected": {},
-      "evidence": {
-        "symptom": "T-1110 (impl) tentou atualizar agent_result.schema.json em .roadmap/, mas o boundary blocked a operação.",
-        "repro_steps": [
-          "Executar esaa submit para T-1110 com file_updates em .roadmap/"
-        ]
-      },
-      "resolution": null,
-      "links": {
-        "reported_by_task_id": "T-1110",
-        "fixes_task_id": null,
-        "hotfix_task_id": null
-      },
-      "timeline": {
-        "created_event_seq": 31,
-        "resolved_event_seq": null
-      }
-    }
-  ],
+  "issues": [],
   "indexes": {
-    "open_by_baseline": {
-      "unknown": [
-        "ISS-0002",
-        "ISS-0003"
-      ]
-    }
+    "open_by_baseline": {}
   }
 }

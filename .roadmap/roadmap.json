@@ -3,15 +3,15 @@
     "schema_version": "0.4.0",
     "esaa_version": "0.4.x",
     "immutable_done": true,
-    "master_correlation_id": "CID-ESAA-INIT",
+    "master_correlation_id": "CID-GITHUB-INTEGRATION-0006",
     "run": {
-      "run_id": "RUN-0001",
-      "status": "initialized",
-      "last_event_seq": 63,
-      "projection_hash_sha256": "3b0a0be8d7e170714edc25d54c9fb189882d67f345cac0e31164e0f300a4072c",
+      "run_id": "RUN-0006",
+      "status": "success",
+      "last_event_seq": 37,
+      "projection_hash_sha256": "994b912b950a36115010243b5e15de9db3e63dffee745aea6993a76886ab3f27",
       "verify_status": "ok"
     },
-    "updated_at": "2026-03-10T11:16:55Z"
+    "updated_at": "2026-03-11T21:49:13Z"
   },
   "project": {
     "name": "esaa-core",
@@ -23,7 +23,7 @@
       "task_kind": "spec",
       "title": "Create initial ESAA spec document",
       "description": "Produce the initial specification artifact for the ESAA core baseline.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [],
       "targets": [
         "spec-core"
@@ -35,14 +35,23 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-spec",
+      "started_at": "2026-03-11T21:39:51Z",
+      "verification": {
+        "checks": [
+          "Spec defines github check and github publish commands.",
+          "Spec defines fallback strategy without gh and dry-run safety gate."
+        ]
+      },
+      "completed_at": "2026-03-11T21:40:24Z"
     },
     {
       "task_id": "T-1010",
       "task_kind": "impl",
       "title": "Create initial implementation artifact",
       "description": "Produce the initial implementation artifact that follows the approved specification.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [
         "T-1000"
       ],
@@ -56,14 +65,24 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
+      },
+      "assigned_to": "agent-impl",
+      "started_at": "2026-03-11T21:44:05Z",
+      "verification": {
+        "checks": [
+          "python -m esaa --root . github check returns repo/branch/remote/auth diagnostics.",
+          "python -m esaa --root . github publish --repo glaubercosta/ESAA --dry-run returns planned command sequence.",
+          "CLI returns actionable next_step for GitHub-specific error codes."
+        ]
+      },
+      "completed_at": "2026-03-11T21:46:08Z"
     },
     {
       "task_id": "T-1020",
       "task_kind": "qa",
       "title": "Create initial QA report",
       "description": "Produce the initial QA evidence artifact validating the implementation baseline.",
-      "status": "todo",
+      "status": "done",
       "depends_on": [
         "T-1010"
       ],
@@ -77,131 +96,27 @@
       },
       "immutability": {
         "done_is_immutable": true
-      }
-    },
-    {
-      "task_id": "T-1100",
-      "task_kind": "spec",
-      "title": "Define Discovery-First Protocol",
-      "description": "Update spec agent contracts to mandate discovery of unknowns and assumptions.",
-      "status": "done",
-      "depends_on": [],
-      "targets": [
-        "contracts"
-      ],
-      "outputs": {
-        "files": [
-          ".roadmap/PARCER_PROFILE.agent-spec.yaml"
-        ]
       },
-      "immutability": {
-        "done_is_immutable": true
-      },
-      "assigned_to": "claude-code",
-      "started_at": "2026-03-08T20:05:42Z",
+      "assigned_to": "agent-qa",
+      "started_at": "2026-03-11T21:47:12Z",
       "verification": {
         "checks": [
-          "Upgrade de contrato aplicado via mutação do orchestrator.",
-          "ISS-0002 resolvido e documentado."
+          "github check returns repo/branch/remote/auth diagnostics.",
+          "github publish --dry-run on main repo returns planned gh flow.",
+          "github publish --no-gh --dry-run on temp repo without remote returns fallback plan with remote add + push."
         ]
       },
-      "completed_at": "2026-03-08T20:08:24Z"
-    },
-    {
-      "task_id": "T-1110",
-      "task_kind": "impl",
-      "title": "Update Schema for Discovery Evidence",
-      "description": "Modify agent_result.schema.json to support discovery evidence fields.",
-      "status": "done",
-      "depends_on": [
-        "T-1100"
-      ],
-      "targets": [
-        "schemas"
-      ],
-      "outputs": {
-        "files": [
-          ".roadmap/agent_result.schema.json"
-        ]
-      },
-      "immutability": {
-        "done_is_immutable": true
-      },
-      "assigned_to": "claude-code",
-      "started_at": "2026-03-08T20:08:40Z",
-      "verification": {
-        "checks": [
-          "Upgrade de schema aplicado via mutação do orchestrator.",
-          "ISS-0003 resolvido e documentado."
-        ]
-      },
-      "completed_at": "2026-03-08T20:15:44Z"
-    },
-    {
-      "task_id": "T-1200",
-      "task_kind": "spec",
-      "title": "Define Semantic Memory Read-Model",
-      "description": "Specify the projection from event store to a Vector DB for agent memory.",
-      "status": "done",
-      "depends_on": [],
-      "targets": [
-        "projections"
-      ],
-      "outputs": {
-        "files": [
-          ".roadmap/PROJECTION_SPEC.md"
-        ]
-      },
-      "immutability": {
-        "done_is_immutable": true
-      },
-      "assigned_to": "claude-code",
-      "started_at": "2026-03-08T20:16:56Z",
-      "verification": {
-        "checks": [
-          "Upgrade de projeção aplicado via mutação.",
-          "ISS-0004 resolvido e documentado."
-        ]
-      },
-      "completed_at": "2026-03-08T20:17:42Z"
-    },
-    {
-      "task_id": "T-9999",
-      "task_kind": "qa",
-      "title": "Smoke Test: Discovery Protocol",
-      "description": "Validar que o framework aceita e valida as novas evidências de descoberta.",
-      "status": "done",
-      "depends_on": [],
-      "targets": [
-        "testing"
-      ],
-      "outputs": {
-        "files": [
-          "/tmp/smoke_test.log"
-        ]
-      },
-      "immutability": {
-        "done_is_immutable": true
-      },
-      "assigned_to": "claude-code",
-      "started_at": "2026-03-08T20:21:06Z",
-      "verification": {
-        "checks": [
-          "Validação de schema v0.4.1 confirmada."
-        ]
-      },
-      "completed_at": "2026-03-08T20:22:17Z"
+      "completed_at": "2026-03-11T21:49:13Z"
     }
   ],
   "indexes": {
     "by_status": {
-      "done": 4,
-      "todo": 3
+      "done": 3
     },
     "by_kind": {
-      "impl": 2,
-      "qa": 2,
-      "spec": 3
+      "impl": 1,
+      "qa": 1,
+      "spec": 1
     }
   }
 }
