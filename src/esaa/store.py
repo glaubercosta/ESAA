@@ -34,6 +34,13 @@ def load_roadmap(root: Path) -> dict[str, Any] | None:
     return _read_json(path)
 
 
+def load_lessons(root: Path) -> dict[str, Any] | None:
+    path = root / LESSONS_PATH
+    if not path.exists():
+        return None
+    return _read_json(path)
+
+
 def save_roadmap(root: Path, roadmap: dict[str, Any]) -> None:
     _write_json(root / ROADMAP_PATH, roadmap)
 

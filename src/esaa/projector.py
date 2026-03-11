@@ -163,22 +163,92 @@ def _apply_issue_report(state: dict[str, Any], event: dict[str, Any]) -> None:
     issue["title"] = payload.get("title", issue["title"])
     issue["evidence"] = deepcopy(payload.get("evidence", issue.get("evidence", {})))
 
-    if payload.get("category") == "process" and payload.get("subtype") == "lesson" and "lesson" in payload:
-        lesson_payload = deepcopy(payload["lesson"])
-        lesson_id = f"LES-{len(state['_lessons']) + 1:04d}"
+    if "lesson" in payload and isinstance(payload["lesson"], dict):
+        _upsert_lesson_from_issue_report(state=state, event=event)
+
+
+def _normalize_lesson_status(value: Any) -> str:
+    allowed = {"proposed", "active", "superseded"}
+    text = str(value or "").strip().lower()
+    if text in allowed:
+        return text
+    if text == "archived":
+        return "superseded"
+    return "active"
+
+
+def _lesson_signature(payload: dict[str, Any], lesson_payload: dict[str, Any]) -> dict[str, Any]:
+    scope = lesson_payload.get("scope", {})
+    enforcement = lesson_payload.get("enforcement", {})
+    task_kinds = list(scope.get("task_kinds", []))
+    task_kinds_sorted = sorted(str(kind) for kind in task_kinds)
+    return {
+        "issue_id": payload.get("issue_id"),
+        "rule": lesson_payload.get("rule"),
+        "scope_task_kinds": task_kinds_sorted,
+        "enforcement_mode": enforcement.get("mode"),
+        "enforcement_applies_to": enforcement.get("applies_to"),
+    }
+
+
+def _derive_lesson_id(payload: dict[str, Any], lesson_payload: dict[str, Any]) -> str:
+    explicit_id = lesson_payload.get("lesson_id")
+    if isinstance(explicit_id, str) and explicit_id.strip():
+        return explicit_id.strip()
+    digest = sha256_hex(_lesson_signature(payload, lesson_payload))[:12]
+    return f"LES-{digest}"
+
+
+def _upsert_lesson_from_issue_report(state: dict[str, Any], event: dict[str, Any]) -> None:
+    payload = event["payload"]
+    lesson_payload = deepcopy(payload["lesson"])
+    lesson_id = _derive_lesson_id(payload, lesson_payload)
+
+    existing = None
+    for lesson in state["_lessons"]:
+        if lesson.get("lesson_id") == lesson_id:
+            existing = lesson
+            break
+
+    source_ref = {
+        "event_id": event["event_id"],
+        "event_seq": event["event_seq"],
+        "issue_id": payload.get("issue_id"),
+        "task_id": payload.get("task_id"),
+    }
+
+    lesson_title = payload.get("title") or lesson_payload.get("rule") or lesson_id
+    normalized_scope = deepcopy(lesson_payload.get("scope", {}))
+    normalized_scope["task_kinds"] = sorted(str(kind) for kind in normalized_scope.get("task_kinds", []))
+
+    if existing is None:
         state["_lessons"].append(
             {
                 "lesson_id": lesson_id,
-                "status": "active",
+                "status": _normalize_lesson_status(lesson_payload.get("status", "active")),
                 "created_at": event["ts"],
-                "title": payload.get("title", lesson_id),
-                "mistake": lesson_payload["mistake"],
-                "rule": lesson_payload["rule"],
-                "scope": lesson_payload["scope"],
-                "enforcement": lesson_payload["enforcement"],
-                "source_refs": [{"task_id": payload.get("task_id"), "event_id": event["event_id"]}],
+                "updated_at": event["ts"],
+                "title": lesson_title,
+                "mistake": lesson_payload.get("mistake", ""),
+                "rule": lesson_payload.get("rule", ""),
+                "scope": normalized_scope,
+                "enforcement": deepcopy(lesson_payload.get("enforcement", {})),
+                "source_refs": [source_ref],
             }
         )
+        return
+
+    existing["status"] = _normalize_lesson_status(lesson_payload.get("status", existing.get("status")))
+    existing["updated_at"] = event["ts"]
+    existing["title"] = lesson_title
+    existing["mistake"] = lesson_payload.get("mistake", existing.get("mistake", ""))
+    existing["rule"] = lesson_payload.get("rule", existing.get("rule", ""))
+    existing["scope"] = normalized_scope
+    existing["enforcement"] = deepcopy(lesson_payload.get("enforcement", existing.get("enforcement", {})))
+    refs = list(existing.get("source_refs", []))
+    if not any(ref.get("event_id") == source_ref["event_id"] for ref in refs):
+        refs.append(source_ref)
+    existing["source_refs"] = refs
 
 
 def _apply_hotfix_create(state: dict[str, Any], event: dict[str, Any]) -> None:
@@ -281,8 +351,10 @@ def materialize(events: list[dict[str, Any]], project_name: str = "esaa-core") -
 
     by_task_kind: dict[str, list[str]] = {}
     by_enforcement: dict[str, list[str]] = {}
-    lessons = deepcopy(state["_lessons"])
+    by_status: dict[str, list[str]] = {}
+    lessons = sorted(deepcopy(state["_lessons"]), key=lambda item: item["lesson_id"])
     for lesson in lessons:
+        by_status.setdefault(lesson["status"], []).append(lesson["lesson_id"])
         for kind in lesson["scope"].get("task_kinds", []):
             by_task_kind.setdefault(kind, []).append(lesson["lesson_id"])
         applies_to = lesson["enforcement"]["applies_to"]
@@ -300,6 +372,7 @@ def materialize(events: list[dict[str, Any]], project_name: str = "esaa-core") -
         "indexes": {
             "by_task_kind": dict(sorted(by_task_kind.items(), key=lambda item: item[0])),
             "by_enforcement_applies_to": dict(sorted(by_enforcement.items(), key=lambda item: item[0])),
+            "by_status": dict(sorted(by_status.items(), key=lambda item: item[0])),
         },
     }
     return roadmap, issues_view, lessons_view

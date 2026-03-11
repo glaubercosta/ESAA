@@ -7,11 +7,11 @@
     "run": {
       "run_id": "RUN-0001",
       "status": "initialized",
-      "last_event_seq": 62,
+      "last_event_seq": 63,
       "projection_hash_sha256": "3b0a0be8d7e170714edc25d54c9fb189882d67f345cac0e31164e0f300a4072c",
       "verify_status": "ok"
     },
-    "updated_at": "2026-03-09T16:08:46Z"
+    "updated_at": "2026-03-10T11:16:55Z"
   },
   "project": {
     "name": "esaa-core",

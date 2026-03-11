@@ -14,6 +14,7 @@ from .store import (
     ensure_event_store,
     load_agent_contract,
     load_agent_result_schema,
+    load_lessons,
     load_roadmap,
     next_event_seq,
     parse_event_store,
@@ -21,7 +22,7 @@ from .store import (
     save_lessons,
     save_roadmap,
 )
-from .utils import ensure_parent, normalize_rel_path, utc_now_iso
+from .utils import ensure_parent, normalize_rel_path, sha256_hex, utc_now_iso
 from .validator import validate_agent_output
 from .memory import SemanticMemory
 from .lesson_engine import LessonEngine
@@ -155,7 +156,7 @@ class ESAAService:
     def verify(self) -> dict[str, Any]:
         try:
             events = parse_event_store(self.root)
-            projected, _, _ = materialize(events)
+            projected, _, projected_lessons = materialize(events)
         except CorruptedStoreError as exc:
             return {
                 "verify_status": "corrupted",
@@ -178,12 +179,27 @@ class ESAAService:
         stored_hash = stored.get("meta", {}).get("run", {}).get("projection_hash_sha256")
         computed_seq = projected["meta"]["run"]["last_event_seq"]
         stored_seq = stored.get("meta", {}).get("run", {}).get("last_event_seq")
+        projected_lessons_hash = sha256_hex(projected_lessons)
+        stored_lessons = load_lessons(self.root)
+        if stored_lessons is None:
+            return {
+                "verify_status": "mismatch",
+                "reason": "lessons_missing",
+                "last_event_seq": computed_seq,
+                "projection_hash_sha256": computed_hash,
+            }
+        stored_lessons_hash = sha256_hex(stored_lessons)
 
-        if computed_hash == stored_hash and computed_seq == stored_seq:
+        if (
+            computed_hash == stored_hash
+            and computed_seq == stored_seq
+            and projected_lessons_hash == stored_lessons_hash
+        ):
             return {
                 "verify_status": "ok",
                 "last_event_seq": computed_seq,
                 "projection_hash_sha256": computed_hash,
+                "lessons_hash_sha256": projected_lessons_hash,
             }
         return {
             "verify_status": "mismatch",
@@ -191,6 +207,8 @@ class ESAAService:
             "projection_hash_sha256": computed_hash,
             "stored_last_event_seq": stored_seq,
             "stored_projection_hash_sha256": stored_hash,
+            "lessons_hash_sha256": projected_lessons_hash,
+            "stored_lessons_hash_sha256": stored_lessons_hash,
         }
 
     def replay(self, until: str | None = None, write_views: bool = True) -> dict[str, Any]:

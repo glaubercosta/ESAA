@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_event_seq": 62,
-    "updated_at": "2026-03-09T16:08:46Z"
+    "last_event_seq": 63,
+    "updated_at": "2026-03-10T11:16:55Z"
   },
   "entries": [
     {
@@ -264,6 +264,15 @@
       "task_id": null,
       "text": "Mutation: Phase 3 smoke test mutation",
       "ts": "2026-03-09T16:08:46Z"
+    },
+    {
+      "event_id": "EV-00000063",
+      "event_seq": 63,
+      "actor": "orchestrator",
+      "action": "orchestrator.view.mutate",
+      "task_id": null,
+      "text": "Mutation: Assimilate issue.report payload.lesson into deterministic lessons projection with lifecycle/indexes and verify consistency gate",
+      "ts": "2026-03-10T11:16:55Z"
     }
   ]
 }

@@ -34,17 +34,21 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["lesson_id", "status", "created_at", "title", "mistake", "rule", "scope", "enforcement"],
+        "required": ["lesson_id", "status", "created_at", "updated_at", "title", "mistake", "rule", "scope", "enforcement", "source_refs"],
         "properties": {
           "lesson_id": {
             "type": "string",
-            "pattern": "^LES-\\d{4}$"
+            "pattern": "^LES-(\\d{4}|[0-9a-f]{12})$"
           },
           "status": {
             "type": "string",
-            "enum": ["active", "archived"]
+            "enum": ["proposed", "active", "superseded"]
           },
           "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
             "type": "string",
             "format": "date-time"
           },
@@ -92,8 +96,17 @@
           "source_refs": {
             "type": "array",
             "items": {
-              "type": "object"
-            }
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["event_id", "event_seq", "issue_id", "task_id"],
+              "properties": {
+                "event_id": {"type": "string", "minLength": 1},
+                "event_seq": {"type": "integer", "minimum": 1},
+                "issue_id": {"type": "string", "minLength": 1},
+                "task_id": {"type": "string", "minLength": 1}
+              }
+            },
+            "minItems": 1
           }
         }
       }
@@ -101,7 +114,7 @@
     "indexes": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["by_task_kind", "by_enforcement_applies_to"],
+      "required": ["by_task_kind", "by_enforcement_applies_to", "by_status"],
       "properties": {
         "by_task_kind": {
           "type": "object",
@@ -109,7 +122,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^LES-\\d{4}$"
+              "pattern": "^LES-(\\d{4}|[0-9a-f]{12})$"
             }
           }
         },
@@ -119,7 +132,17 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^LES-\\d{4}$"
+              "pattern": "^LES-(\\d{4}|[0-9a-f]{12})$"
+            }
+          }
+        },
+        "by_status": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^LES-(\\d{4}|[0-9a-f]{12})$"
             }
           }
         }
